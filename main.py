@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.integrate import quad
+from scipy.special import iv
 
 from src.diffusion_1d import analytic_point_source_1d, simulate_1d, simulate_1d_center_series, stable_dt_1d
 from src.diffusion_3d import analytic_sphere_density, line_of_sight_integral, simulate_3d
@@ -79,6 +81,43 @@ def run_project_c2_simulation(out_dir: Path) -> None:
     plt.title(f"Radial Density Profile (t={t_end})")
     plt.legend()
     plt.savefig(out_dir / "project_c2_radial_density.png")
+    plt.show()
+
+
+def brightness_bessel(rho: float, R: float, D: float, t: float) -> float:
+    """Compute B(rho) using numerical integration over theta."""
+    if D <= 0 or t <= 0 or R <= 0:
+        raise ValueError("R, D, t must be positive")
+
+    prefactor = (R**3) / (D * t) * np.exp(-(rho**2) / (4 * D * t))
+
+    def integrand(theta: float) -> float:
+        sin_t = np.sin(theta)
+        cos_t = np.cos(theta)
+        exp_term = np.exp(-(R**2) * (sin_t**2) / (4 * D * t))
+        arg = (R * rho * sin_t) / (2 * D * t)
+        return exp_term * iv(0, arg) * sin_t * (cos_t**2)
+
+    integral, _ = quad(integrand, 0.0, np.pi / 2, limit=200)
+    return prefactor * integral
+
+
+def run_brightness_verification(out_dir: Path) -> None:
+    R = 4.0
+    D = 1.0
+    t = 2.0
+
+    rho = np.linspace(0.0, 2.5 * R, 80)
+    brightness = np.array([brightness_bessel(r, R, D, t) for r in rho])
+
+    plt.figure()
+    plt.plot(rho, brightness, "-", label="Brightness integral")
+    plt.xlabel("Impact parameter $\\rho$")
+    plt.ylabel("Brightness B($\\rho$)")
+    plt.title(f"Brightness Verification (R={R}, D={D}, t={t})")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_dir / "brightness_verification.png", dpi=150)
     plt.show()
 
 
@@ -197,5 +236,6 @@ if __name__ == "__main__":
     output_path.mkdir(exist_ok=True)
     run_1d_demo(output_path)
     run_project_c2_simulation(output_path)
+    run_brightness_verification(output_path)
     run_parameter_study(output_path)
     run_sensitivity_analysis(output_path)
