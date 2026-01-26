@@ -3,7 +3,8 @@
 This project simulates diffusion using an explicit finite-difference method. It includes:
 
 - 1D diffusion with a numerical solution compared against the analytical Gaussian solution.
-- 3D diffusion with line-of-sight integration to simulate a camera observation.
+- 3D diffusion with Gaussian initialization, anisotropic diffusion ($D_{xy}$, $D_z$), and line-of-sight integration.
+- Optional drift support in the 3D solver.
 
 ## Requirements
 
@@ -27,8 +28,14 @@ Running the script saves figures and arrays under the outputs/ folder:
 - diffusion_1d_x.npy
 - diffusion_1d_numerical.npy
 - diffusion_1d_analytical.npy
-- diffusion_3d_los.png
-- diffusion_3d_los.npy
+- diffusion_3d_los_compare.png
+- diffusion_3d_los_analytic.png
+- diffusion_3d_los_error.png
+- diffusion_3d_los_isotropic.npy
+- diffusion_3d_los_anisotropic.npy
+- diffusion_3d_los_analytic.npy
+- diffusion_3d_los_error_isotropic.npy
+- diffusion_3d_los_error_anisotropic.npy
 
 ## Notes
 
