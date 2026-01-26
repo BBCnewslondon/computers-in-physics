@@ -6,7 +6,7 @@ from typing import cast
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.diffusion_1d import analytic_point_source_1d, simulate_1d
+from src.diffusion_1d import analytic_point_source_1d, simulate_1d, simulate_1d_center_series, stable_dt_1d
 from src.diffusion_3d import analytic_los_gaussian_2d, line_of_sight_integral, simulate_3d
 
 
@@ -230,9 +230,68 @@ def run_parameter_study(out_dir: Path) -> None:
         plt.close()
 
 
+def run_sensitivity_analysis(out_dir: Path) -> None:
+    D_base = 0.5
+    total_particles = 1.0
+    t_end = 0.5
+    x_min, x_max = -5.0, 5.0
+    nx = 401
+    sigma0 = 0.2
+
+    dx = (x_max - x_min) / (nx - 1)
+    dt_fixed = stable_dt_1d(dx, D_base)
+
+    rng = np.random.default_rng(42)
+    n_runs = 5
+    perturb = 0.05
+
+    series = []
+    times_ref = None
+    for _ in range(n_runs):
+        factor = 1.0 + rng.uniform(-perturb, perturb)
+        D = D_base * factor
+        times, values = simulate_1d_center_series(
+            x_min=x_min,
+            x_max=x_max,
+            nx=nx,
+            D=D,
+            t_end=t_end,
+            total_particles=total_particles,
+            x0=0.0,
+            sigma0=sigma0,
+            dt=dt_fixed,
+        )
+        if times_ref is None:
+            times_ref = times
+        series.append(values)
+
+    data = np.vstack(series)
+    mean = data.mean(axis=0)
+    low = data.min(axis=0)
+    high = data.max(axis=0)
+
+    np.save(out_dir / "sensitivity_time.npy", times_ref)
+    np.save(out_dir / "sensitivity_center_mean.npy", mean)
+    np.save(out_dir / "sensitivity_center_low.npy", low)
+    np.save(out_dir / "sensitivity_center_high.npy", high)
+    np.save(out_dir / "sensitivity_center_ensemble.npy", data)
+
+    plt.figure()
+    plt.plot(times_ref, mean, label="Mean")
+    plt.fill_between(times_ref, low, high, alpha=0.3, label="±5% D range")
+    plt.xlabel("time")
+    plt.ylabel("center density")
+    plt.title("Sensitivity Analysis (1D, D ±5%)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_dir / "sensitivity_1d.png", dpi=150)
+    plt.close()
+
+
 if __name__ == "__main__":
     output_path = Path("outputs")
     output_path.mkdir(exist_ok=True)
     run_1d_demo(output_path)
     run_3d_demo(output_path)
     run_parameter_study(output_path)
+    run_sensitivity_analysis(output_path)

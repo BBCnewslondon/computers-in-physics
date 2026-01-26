@@ -56,3 +56,38 @@ def simulate_1d(
         t += dt
 
     return x, n
+
+
+def simulate_1d_center_series(
+    x_min: float,
+    x_max: float,
+    nx: int,
+    D: float,
+    t_end: float,
+    total_particles: float,
+    x0: float = 0.0,
+    sigma0: float = 0.1,
+    dt: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Simulate 1D diffusion and return time series at the center point."""
+    x = np.linspace(x_min, x_max, nx)
+    dx = x[1] - x[0]
+    if dt is None:
+        dt = stable_dt_1d(dx, D)
+
+    n = initial_gaussian_1d(x, x0, sigma0, total_particles)
+    center_idx = nx // 2
+
+    t = 0.0
+    times = [t]
+    values = [float(n[center_idx])]
+
+    while t < t_end:
+        if t + dt > t_end:
+            dt = t_end - t
+        n = step_explicit_1d(n, D, dx, dt)
+        t += dt
+        times.append(t)
+        values.append(float(n[center_idx]))
+
+    return np.asarray(times), np.asarray(values)

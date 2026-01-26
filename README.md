@@ -46,6 +46,12 @@ Running the script saves figures and arrays under the outputs/ folder:
 - diffusion_3d_mass.png
 - diffusion_3d_mass_time.npy
 - diffusion_3d_mass.npy
+- sensitivity_1d.png
+- sensitivity_time.npy
+- sensitivity_center_mean.npy
+- sensitivity_center_low.npy
+- sensitivity_center_high.npy
+- sensitivity_center_ensemble.npy
 
 ## Notes
 
