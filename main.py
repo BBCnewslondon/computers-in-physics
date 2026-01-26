@@ -5,6 +5,7 @@ from typing import cast
 
 import numpy as np
 import matplotlib.pyplot as plt
+from skimage.measure import marching_cubes
 
 from src.diffusion_1d import analytic_point_source_1d, simulate_1d, simulate_1d_center_series, stable_dt_1d
 from src.diffusion_3d import analytic_los_gaussian_2d, line_of_sight_integral, simulate_3d
@@ -87,6 +88,29 @@ def run_3d_demo(out_dir: Path) -> None:
         ),
     )
     image_aniso = line_of_sight_integral(n_aniso, axis=2, dx=dx)
+
+    # 3D isosurface visualization for anisotropic cloud
+    iso_level = float(n_aniso.max() * 0.2)
+    verts, faces, _, _ = marching_cubes(n_aniso, level=iso_level, spacing=(dx, dx, dx))
+    fig = plt.figure(figsize=(6, 5))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot_trisurf(
+        verts[:, 0],
+        verts[:, 1],
+        faces,
+        verts[:, 2],
+        linewidth=0.1,
+        alpha=0.8,
+        color="steelblue",
+    )
+    ax.set_title("3D Isosurface (Anisotropic)")
+    ax.set_xlabel("x (km)")
+    ax.set_ylabel("y (km)")
+    ax.set_zlabel("z (km)")
+    ax.set_box_aspect((1, 1, 1))
+    plt.tight_layout()
+    plt.savefig(out_dir / "diffusion_3d_isosurface.png", dpi=150)
+    plt.close(fig)
 
     x = (np.arange(nx) - nx // 2) * dx
     y = (np.arange(ny) - ny // 2) * dx

@@ -12,6 +12,7 @@ This project simulates diffusion using an explicit finite-difference method. It 
 - Python 3.10+
 - NumPy
 - Matplotlib
+- scikit-image
 
 Install dependencies:
 
@@ -46,6 +47,7 @@ Running the script saves figures and arrays under the outputs/ folder:
 - diffusion_3d_mass.png
 - diffusion_3d_mass_time.npy
 - diffusion_3d_mass.npy
+- diffusion_3d_isosurface.png
 - sensitivity_1d.png
 - sensitivity_time.npy
 - sensitivity_center_mean.npy
