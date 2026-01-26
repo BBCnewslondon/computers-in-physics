@@ -92,7 +92,7 @@ def run_3d_demo(out_dir: Path) -> None:
     # 3D isosurface visualization for anisotropic cloud
     iso_level = float(n_aniso.max() * 0.2)
     verts, faces, _, _ = marching_cubes(n_aniso, level=iso_level, spacing=(dx, dx, dx))
-    fig = plt.figure(figsize=(6, 5))
+    fig = plt.figure(figsize=(7, 6))
     ax = fig.add_subplot(111, projection="3d")
     ax.plot_trisurf(
         verts[:, 0],
@@ -103,13 +103,13 @@ def run_3d_demo(out_dir: Path) -> None:
         alpha=0.8,
         color="steelblue",
     )
-    ax.set_title("3D Isosurface (Anisotropic)")
+    ax.set_title("3D Isosurface (Anisotropic)", pad=12)
     ax.set_xlabel("x (km)")
     ax.set_ylabel("y (km)")
     ax.set_zlabel("z (km)")
     ax.set_box_aspect((nx, ny, nz))
-    plt.tight_layout()
-    plt.savefig(out_dir / "diffusion_3d_isosurface.png", dpi=150)
+    fig.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.90)
+    plt.savefig(out_dir / "diffusion_3d_isosurface.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
 
     x = (np.arange(nx) - nx // 2) * dx
