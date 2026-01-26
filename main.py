@@ -270,6 +270,46 @@ def run_parameter_study(out_dir: Path) -> None:
         plt.tight_layout()
         plt.savefig(out_dir / f"diffusion_3d_los_alt_{alt_km}km.png", dpi=150)
         plt.close()
+        
+def run_mass_conservation_check(out_dir: Path) -> None:
+    """
+    From 'main' branch:
+    Checks if total mass is conserved during a simulation with drift.
+    """
+    nx, ny, nz = 31, 31, 81
+    dx = 1.0
+    sigma0 = 1.5
+    t_end = 5.0
+    total_particles = 1.0
+    
+    # Drift velocity (vx, vy, vz)
+    drift = (0.25, 0.0, 0.0)
+    
+    # Run simulation with mass tracking enabled
+    # Note: We use D=0.2 (isotropic) for this test
+    _, times, masses = simulate_3d(
+        nx=nx, ny=ny, nz=nz,
+        D_xy=0.2, D_z=0.2,
+        t_end=t_end, total_particles=total_particles,
+        dx=dx, sigma0=sigma0,
+        initial="gaussian",
+        drift=drift,
+        track_mass=True,
+        mass_interval=1,
+    )
+
+    np.save(out_dir / "diffusion_3d_mass_time.npy", times)
+    np.save(out_dir / "diffusion_3d_mass.npy", masses)
+
+    plt.figure()
+    plt.plot(times, masses)
+    plt.xlabel("time")
+    plt.ylabel("total mass")
+    plt.title("Mass vs Time (Drift with Outflow)")
+    plt.ylim(0.95 * total_particles, 1.05 * total_particles)  # Zoom in to see errors
+    plt.tight_layout()
+    plt.savefig(out_dir / "diffusion_3d_mass.png", dpi=150)
+    plt.close()
 
 if __name__ == "__main__":
     output_path = Path("outputs")
@@ -292,4 +332,6 @@ if __name__ == "__main__":
     
     print("Done! Check 'outputs/' directory.")
     run_sensitivity_analysis(output_path)
+    run_mass_conservation_check(output_path)
+    
     
