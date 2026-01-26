@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.special import erfc
 
 
 def stable_dt_3d(dx: float, D_xy: float, D_z: float, safety: float = 0.2) -> float:
@@ -37,6 +38,47 @@ def initial_gaussian_3d(
     n = np.exp(-(x2 + y2 + z2) / (2 * sigma * sigma))
     n *= total_particles / (n.sum() * dx**3)
     return n
+
+
+def initial_uniform_sphere(
+    shape: tuple[int, int, int],
+    center: tuple[int, int, int],
+    radius: float,
+    dx: float = 1.0,
+) -> np.ndarray:
+    """Initialize C equal to unity inside a sphere of radius R and zero outside."""
+    nx, ny, nz = shape
+    cx, cy, cz = center
+
+    x = (np.arange(nx) - cx) * dx
+    y = (np.arange(ny) - cy) * dx
+    z = (np.arange(nz) - cz) * dx
+
+    r2 = x[:, None, None] ** 2 + y[None, :, None] ** 2 + z[None, None, :] ** 2
+
+    n = np.zeros(shape, dtype=float)
+    n[r2 <= radius**2] = 1.0
+    return n
+
+
+def analytic_sphere_density(r: np.ndarray, t: float, D: float, R: float) -> np.ndarray:
+    """Analytical density for a uniform sphere of radius R."""
+    if t <= 0:
+        return np.zeros_like(r)
+
+    sqrt_Dt = np.sqrt(D * t)
+    r_plus = (R + r) / (2 * sqrt_Dt)
+    r_minus = (R - r) / (2 * sqrt_Dt)
+
+    term1 = 0.5 * (2 - erfc(r_plus) - erfc(r_minus))
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        term2 = (1.0 / r) * np.sqrt(D * t / np.pi) * (
+            np.exp(-r_plus**2) - np.exp(-r_minus**2)
+        )
+    term2 = np.nan_to_num(term2)
+
+    return term1 + term2
 
 
 def _fill_neumann_pad(n: np.ndarray, n_pad: np.ndarray) -> None:
@@ -137,6 +179,7 @@ def simulate_3d(
     sigma0: float = 1.5,
     drift: tuple[float, float, float] = (0.0, 0.0, 0.0),
     initial: str = "gaussian",
+    radius: float = 5.0,
     track_mass: bool = False,
     mass_interval: int = 1,
 ) -> np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -152,8 +195,10 @@ def simulate_3d(
         n = initial_point_3d((nx, ny, nz), center, total_particles)
     elif initial == "gaussian":
         n = initial_gaussian_3d((nx, ny, nz), center, sigma0, total_particles, dx)
+    elif initial == "sphere":
+        n = initial_uniform_sphere((nx, ny, nz), center, radius, dx)
     else:
-        raise ValueError("initial must be 'point' or 'gaussian'")
+        raise ValueError("initial must be 'point', 'gaussian', or 'sphere'")
 
     n_pad = np.empty((nx + 2, ny + 2, nz + 2), dtype=float)
     adv_pad = np.empty((nx + 2, ny + 2, nz + 2), dtype=float)

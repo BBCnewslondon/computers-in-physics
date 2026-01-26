@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
-
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.measure import marching_cubes
 
 from src.diffusion_1d import analytic_point_source_1d, simulate_1d, simulate_1d_center_series, stable_dt_1d
-from src.diffusion_3d import analytic_los_gaussian_2d, line_of_sight_integral, simulate_3d
+from src.diffusion_3d import analytic_sphere_density, line_of_sight_integral, simulate_3d
 
 
 def run_1d_demo(out_dir: Path) -> None:
@@ -45,158 +42,44 @@ def run_1d_demo(out_dir: Path) -> None:
     plt.show()
 
 
-def run_3d_demo(out_dir: Path) -> None:
-    total_particles = 1.0
-    t_end = 5.0
-    dx = 1.0
-    sigma0 = 1.5
+def run_project_c2_simulation(out_dir: Path) -> None:
+    R = 4.0
+    dx = 0.5
+    D = 1.0
+    nx, ny, nz = 31, 31, 31
 
-    nx, ny, nz = 31, 31, 81
+    dt = (dx**2) / (6 * D)
+    t_end = 2.0
 
-    D_xy_iso, D_z_iso = 0.2, 0.2
-    n_iso = cast(
-        np.ndarray,
-        simulate_3d(
+    n_numerical = simulate_3d(
         nx=nx,
         ny=ny,
         nz=nz,
-        D_xy=D_xy_iso,
-        D_z=D_z_iso,
+        D_xy=D,
+        D_z=D,
         t_end=t_end,
-        total_particles=total_particles,
+        total_particles=1.0,
         dx=dx,
-        sigma0=sigma0,
-        initial="gaussian",
-        ),
+        dt=dt,
+        initial="sphere",
+        radius=R,
     )
-    image_iso = line_of_sight_integral(n_iso, axis=2, dx=dx)
 
-    D_xy_aniso, D_z_aniso = 0.2, 1.0
-    n_aniso = cast(
-        np.ndarray,
-        simulate_3d(
-        nx=nx,
-        ny=ny,
-        nz=nz,
-        D_xy=D_xy_aniso,
-        D_z=D_z_aniso,
-        t_end=t_end,
-        total_particles=total_particles,
-        dx=dx,
-        sigma0=sigma0,
-        initial="gaussian",
-        ),
-    )
-    image_aniso = line_of_sight_integral(n_aniso, axis=2, dx=dx)
+    center_idx = nx // 2
+    c_radial_numerical = n_numerical[:, ny // 2, nz // 2]
+    r_axis = np.abs((np.arange(nx) - center_idx) * dx)
 
-    # 3D isosurface visualization for anisotropic cloud
-    iso_level = float(n_aniso.max() * 0.2)
-    verts, faces, _, _ = marching_cubes(n_aniso, level=iso_level, spacing=(dx, dx, dx))
-    fig = plt.figure(figsize=(7, 6))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_trisurf(
-        verts[:, 0],
-        verts[:, 1],
-        faces,
-        verts[:, 2],
-        linewidth=0.1,
-        alpha=0.8,
-        color="steelblue",
-    )
-    ax.set_title("3D Isosurface (Anisotropic)", pad=12)
-    ax.set_xlabel("x (km)")
-    ax.set_ylabel("y (km)")
-    ax.set_zlabel("z (km)")
-    ax.set_box_aspect((nx, ny, nz))
-    fig.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.90)
-    plt.savefig(out_dir / "diffusion_3d_isosurface.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
-    plt.close(fig)
-
-    x = (np.arange(nx) - nx // 2) * dx
-    y = (np.arange(ny) - ny // 2) * dx
-    X, Y = np.meshgrid(x, y, indexing="ij")
-    analytic = analytic_los_gaussian_2d(X, Y, t_end, D_xy_iso, total_particles)
-
-    err_iso = image_iso - analytic
-    err_aniso = image_aniso - analytic
-
-    np.save(out_dir / "diffusion_3d_los_isotropic.npy", image_iso)
-    np.save(out_dir / "diffusion_3d_los_anisotropic.npy", image_aniso)
-    np.save(out_dir / "diffusion_3d_los_analytic.npy", analytic)
-    np.save(out_dir / "diffusion_3d_los_error_isotropic.npy", err_iso)
-    np.save(out_dir / "diffusion_3d_los_error_anisotropic.npy", err_aniso)
-
-    vmin = min(image_iso.min(), image_aniso.min())
-    vmax = max(image_iso.max(), image_aniso.max())
-
-    extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
-
-    plt.figure(figsize=(8, 4))
-    plt.subplot(1, 2, 1)
-    plt.imshow(image_iso, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax, extent=extent)
-    plt.title("Isotropic LOS")
-    plt.xlabel("x (km)")
-    plt.ylabel("y (km)")
-    plt.subplot(1, 2, 2)
-    plt.imshow(image_aniso, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax, extent=extent)
-    plt.title("Anisotropic LOS")
-    plt.xlabel("x (km)")
-    plt.ylabel("y (km)")
-    plt.tight_layout()
-    plt.savefig(out_dir / "diffusion_3d_los_compare.png", dpi=150)
-
-    plt.figure(figsize=(8, 4))
-    plt.subplot(1, 2, 1)
-    plt.imshow(err_iso, origin="lower", cmap="coolwarm", extent=extent)
-    plt.title("Isotropic Error")
-    plt.xlabel("x (km)")
-    plt.ylabel("y (km)")
-    plt.subplot(1, 2, 2)
-    plt.imshow(err_aniso, origin="lower", cmap="coolwarm", extent=extent)
-    plt.title("Anisotropic Error")
-    plt.xlabel("x (km)")
-    plt.ylabel("y (km)")
-    plt.tight_layout()
-    plt.savefig(out_dir / "diffusion_3d_los_error.png", dpi=150)
+    c_radial_analytic = analytic_sphere_density(r_axis, t_end, D, R)
 
     plt.figure()
-    plt.imshow(analytic, origin="lower", cmap="viridis", extent=extent)
-    plt.colorbar(label="Integrated density")
-    plt.title("Analytical LOS (2D Gaussian)")
-    plt.xlabel("x (km)")
-    plt.ylabel("y (km)")
-    plt.tight_layout()
-    plt.savefig(out_dir / "diffusion_3d_los_analytic.png", dpi=150)
+    plt.plot(r_axis, c_radial_numerical, "o", label="Numerical (Finite Diff)")
+    plt.plot(r_axis, c_radial_analytic, "-", label="Analytical (Theory)")
+    plt.xlabel("Radius r")
+    plt.ylabel("Density C")
+    plt.title(f"Radial Density Profile (t={t_end})")
+    plt.legend()
+    plt.savefig(out_dir / "project_c2_radial_density.png")
     plt.show()
-
-    # Mass conservation check with drift (outflow boundaries)
-    drift = (0.25, 0.0, 0.0)
-    _, times, masses = simulate_3d(
-        nx=nx,
-        ny=ny,
-        nz=nz,
-        D_xy=D_xy_iso,
-        D_z=D_z_iso,
-        t_end=t_end,
-        total_particles=total_particles,
-        dx=dx,
-        sigma0=sigma0,
-        initial="gaussian",
-        drift=drift,
-        track_mass=True,
-        mass_interval=1,
-    )
-    np.save(out_dir / "diffusion_3d_mass_time.npy", times)
-    np.save(out_dir / "diffusion_3d_mass.npy", masses)
-
-    plt.figure()
-    plt.plot(times, masses)
-    plt.xlabel("time")
-    plt.ylabel("total mass")
-    plt.title("Mass vs Time (Drift with Outflow)")
-    plt.tight_layout()
-    plt.savefig(out_dir / "diffusion_3d_mass.png", dpi=150)
-    plt.close()
 
 
 def run_parameter_study(out_dir: Path) -> None:
@@ -223,21 +106,18 @@ def run_parameter_study(out_dir: Path) -> None:
         D_z = case["D_z"]
         drift = case["drift"]
 
-        n = cast(
-            np.ndarray,
-            simulate_3d(
-                nx=nx,
-                ny=ny,
-                nz=nz,
-                D_xy=D_xy,
-                D_z=D_z,
-                t_end=t_end,
-                total_particles=total_particles,
-                dx=dx,
-                sigma0=sigma0,
-                initial="gaussian",
-                drift=drift,
-            ),
+        n = simulate_3d(
+            nx=nx,
+            ny=ny,
+            nz=nz,
+            D_xy=D_xy,
+            D_z=D_z,
+            t_end=t_end,
+            total_particles=total_particles,
+            dx=dx,
+            sigma0=sigma0,
+            initial="gaussian",
+            drift=drift,
         )
         image = line_of_sight_integral(n, axis=2, dx=dx)
 
@@ -316,6 +196,6 @@ if __name__ == "__main__":
     output_path = Path("outputs")
     output_path.mkdir(exist_ok=True)
     run_1d_demo(output_path)
-    run_3d_demo(output_path)
+    run_project_c2_simulation(output_path)
     run_parameter_study(output_path)
     run_sensitivity_analysis(output_path)
