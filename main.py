@@ -47,11 +47,11 @@ def run_1d_demo(out_dir: Path) -> None:
 
 def run_3d_demo(out_dir: Path) -> None:
     total_particles = 1.0
-    t_end = 0.5
+    t_end = 5.0
     dx = 1.0
     sigma0 = 1.5
 
-    nx, ny, nz = 41, 41, 41
+    nx, ny, nz = 31, 31, 81
 
     D_xy_iso, D_z_iso = 0.2, 0.2
     n_iso = cast(
@@ -71,7 +71,7 @@ def run_3d_demo(out_dir: Path) -> None:
     )
     image_iso = line_of_sight_integral(n_iso, axis=2, dx=dx)
 
-    D_xy_aniso, D_z_aniso = 0.2, 0.05
+    D_xy_aniso, D_z_aniso = 0.2, 1.0
     n_aniso = cast(
         np.ndarray,
         simulate_3d(
@@ -107,7 +107,7 @@ def run_3d_demo(out_dir: Path) -> None:
     ax.set_xlabel("x (km)")
     ax.set_ylabel("y (km)")
     ax.set_zlabel("z (km)")
-    ax.set_box_aspect((1, 1, 1))
+    ax.set_box_aspect((nx, ny, nz))
     plt.tight_layout()
     plt.savefig(out_dir / "diffusion_3d_isosurface.png", dpi=150)
     plt.close(fig)
