@@ -127,8 +127,56 @@ def run_3d_demo(out_dir: Path) -> None:
     plt.show()
 
 
+def run_parameter_study(out_dir: Path) -> None:
+    total_particles = 1.0
+    t_end = 0.5
+    dx = 1.0
+    sigma0 = 1.5
+    nx, ny, nz = 41, 41, 41
+
+    # NOTE: Replace these placeholder values with measured/derived diffusion
+    # coefficients for Ba at 150-250 km. Units should match the model (dx, t).
+    altitude_cases = [
+        {"alt_km": 150, "D_xy": 0.15, "D_z": 0.05, "drift": (0.0, 0.0, 0.0)},
+        {"alt_km": 200, "D_xy": 0.22, "D_z": 0.08, "drift": (0.0, 0.0, 0.0)},
+        {"alt_km": 250, "D_xy": 0.30, "D_z": 0.12, "drift": (0.0, 0.0, 0.0)},
+    ]
+
+    for case in altitude_cases:
+        alt_km = case["alt_km"]
+        D_xy = case["D_xy"]
+        D_z = case["D_z"]
+        drift = case["drift"]
+
+        n = simulate_3d(
+            nx=nx,
+            ny=ny,
+            nz=nz,
+            D_xy=D_xy,
+            D_z=D_z,
+            t_end=t_end,
+            total_particles=total_particles,
+            dx=dx,
+            sigma0=sigma0,
+            initial="gaussian",
+            drift=drift,
+        )
+        image = line_of_sight_integral(n, axis=2, dx=dx)
+
+        np.save(out_dir / f"diffusion_3d_los_alt_{alt_km}km.npy", image)
+
+        plt.figure()
+        plt.imshow(image, origin="lower", cmap="viridis")
+        plt.colorbar(label="Integrated density")
+        plt.title(f"LOS Density (Alt {alt_km} km)")
+        plt.tight_layout()
+        plt.savefig(out_dir / f"diffusion_3d_los_alt_{alt_km}km.png", dpi=150)
+        plt.close()
+
+
 if __name__ == "__main__":
     output_path = Path("outputs")
     output_path.mkdir(exist_ok=True)
     run_1d_demo(output_path)
     run_3d_demo(output_path)
+    run_parameter_study(output_path)
