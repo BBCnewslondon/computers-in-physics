@@ -75,6 +75,12 @@ def _fill_neumann_pad(n: np.ndarray, n_pad: np.ndarray) -> None:
     n_pad[-1, -1, -1] = n[-1, -1, -1]
 
 
+def _fill_zero_pad(n: np.ndarray, n_pad: np.ndarray) -> None:
+    """Fill padded array with zeros at the boundary (outflow/Dirichlet)."""
+    n_pad.fill(0.0)
+    n_pad[1:-1, 1:-1, 1:-1] = n
+
+
 def step_explicit_3d(
     n: np.ndarray,
     D_xy: float,
@@ -83,6 +89,7 @@ def step_explicit_3d(
     dt: float,
     drift: tuple[float, float, float] = (0.0, 0.0, 0.0),
     n_pad: np.ndarray | None = None,
+    adv_pad: np.ndarray | None = None,
 ) -> np.ndarray:
     """Single explicit Euler step with anisotropic diffusion and optional drift."""
     if n_pad is None:
@@ -97,9 +104,21 @@ def step_explicit_3d(
 
     vx, vy, vz = drift
     if vx != 0.0 or vy != 0.0 or vz != 0.0:
-        dn_dx = (n_pad[2:, 1:-1, 1:-1] - n_pad[:-2, 1:-1, 1:-1]) / (2 * dx)
-        dn_dy = (n_pad[1:-1, 2:, 1:-1] - n_pad[1:-1, :-2, 1:-1]) / (2 * dx)
-        dn_dz = (n_pad[1:-1, 1:-1, 2:] - n_pad[1:-1, 1:-1, :-2]) / (2 * dx)
+        if adv_pad is None:
+            adv_pad = np.empty_like(n_pad)
+        _fill_zero_pad(n, adv_pad)
+
+        left_x = adv_pad[0:-2, 1:-1, 1:-1]
+        right_x = adv_pad[2:, 1:-1, 1:-1]
+        left_y = adv_pad[1:-1, 0:-2, 1:-1]
+        right_y = adv_pad[1:-1, 2:, 1:-1]
+        left_z = adv_pad[1:-1, 1:-1, 0:-2]
+        right_z = adv_pad[1:-1, 1:-1, 2:]
+
+        dn_dx = (n - left_x) / dx if vx >= 0.0 else (right_x - n) / dx
+        dn_dy = (n - left_y) / dx if vy >= 0.0 else (right_y - n) / dx
+        dn_dz = (n - left_z) / dx if vz >= 0.0 else (right_z - n) / dx
+
         lap = lap - (vx * dn_dx + vy * dn_dy + vz * dn_dz)
 
     return n + dt * lap
@@ -118,8 +137,13 @@ def simulate_3d(
     sigma0: float = 1.5,
     drift: tuple[float, float, float] = (0.0, 0.0, 0.0),
     initial: str = "gaussian",
-) -> np.ndarray:
-    """Simulate 3D diffusion of a source until t_end."""
+    track_mass: bool = False,
+    mass_interval: int = 1,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Simulate 3D diffusion of a source until t_end.
+
+    If track_mass is True, returns (n, times, masses).
+    """
     if dt is None:
         dt = stable_dt_3d(dx, D_xy, D_z)
 
@@ -132,14 +156,32 @@ def simulate_3d(
         raise ValueError("initial must be 'point' or 'gaussian'")
 
     n_pad = np.empty((nx + 2, ny + 2, nz + 2), dtype=float)
+    adv_pad = np.empty((nx + 2, ny + 2, nz + 2), dtype=float)
+
+    times: list[float] | None = None
+    masses: list[float] | None = None
+    if track_mass:
+        times = [0.0]
+        masses = [float(n.sum() * dx**3)]
 
     t = 0.0
+    step_index = 0
     while t < t_end:
         if t + dt > t_end:
             dt = t_end - t
-        n = step_explicit_3d(n, D_xy, D_z, dx, dt, drift=drift, n_pad=n_pad)
+        n = step_explicit_3d(n, D_xy, D_z, dx, dt, drift=drift, n_pad=n_pad, adv_pad=adv_pad)
         t += dt
+        step_index += 1
+        if track_mass and step_index % mass_interval == 0:
+            if times is None or masses is None:
+                raise RuntimeError("Mass tracking buffers not initialized")
+            times.append(t)
+            masses.append(float(n.sum() * dx**3))
 
+    if track_mass:
+        if times is None or masses is None:
+            raise RuntimeError("Mass tracking buffers not initialized")
+        return n, np.asarray(times), np.asarray(masses)
     return n
 
 

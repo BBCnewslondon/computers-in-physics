@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -52,7 +53,9 @@ def run_3d_demo(out_dir: Path) -> None:
     nx, ny, nz = 41, 41, 41
 
     D_xy_iso, D_z_iso = 0.2, 0.2
-    n_iso = simulate_3d(
+    n_iso = cast(
+        np.ndarray,
+        simulate_3d(
         nx=nx,
         ny=ny,
         nz=nz,
@@ -63,11 +66,14 @@ def run_3d_demo(out_dir: Path) -> None:
         dx=dx,
         sigma0=sigma0,
         initial="gaussian",
+        ),
     )
     image_iso = line_of_sight_integral(n_iso, axis=2, dx=dx)
 
     D_xy_aniso, D_z_aniso = 0.2, 0.05
-    n_aniso = simulate_3d(
+    n_aniso = cast(
+        np.ndarray,
+        simulate_3d(
         nx=nx,
         ny=ny,
         nz=nz,
@@ -78,6 +84,7 @@ def run_3d_demo(out_dir: Path) -> None:
         dx=dx,
         sigma0=sigma0,
         initial="gaussian",
+        ),
     )
     image_aniso = line_of_sight_integral(n_aniso, axis=2, dx=dx)
 
@@ -98,7 +105,7 @@ def run_3d_demo(out_dir: Path) -> None:
     vmin = min(image_iso.min(), image_aniso.min())
     vmax = max(image_iso.max(), image_aniso.max())
 
-    extent = [x.min(), x.max(), y.min(), y.max()]
+    extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
 
     plt.figure(figsize=(8, 4))
     plt.subplot(1, 2, 1)
@@ -138,6 +145,35 @@ def run_3d_demo(out_dir: Path) -> None:
     plt.savefig(out_dir / "diffusion_3d_los_analytic.png", dpi=150)
     plt.show()
 
+    # Mass conservation check with drift (outflow boundaries)
+    drift = (0.25, 0.0, 0.0)
+    _, times, masses = simulate_3d(
+        nx=nx,
+        ny=ny,
+        nz=nz,
+        D_xy=D_xy_iso,
+        D_z=D_z_iso,
+        t_end=t_end,
+        total_particles=total_particles,
+        dx=dx,
+        sigma0=sigma0,
+        initial="gaussian",
+        drift=drift,
+        track_mass=True,
+        mass_interval=1,
+    )
+    np.save(out_dir / "diffusion_3d_mass_time.npy", times)
+    np.save(out_dir / "diffusion_3d_mass.npy", masses)
+
+    plt.figure()
+    plt.plot(times, masses)
+    plt.xlabel("time")
+    plt.ylabel("total mass")
+    plt.title("Mass vs Time (Drift with Outflow)")
+    plt.tight_layout()
+    plt.savefig(out_dir / "diffusion_3d_mass.png", dpi=150)
+    plt.close()
+
 
 def run_parameter_study(out_dir: Path) -> None:
     total_particles = 1.0
@@ -145,6 +181,9 @@ def run_parameter_study(out_dir: Path) -> None:
     dx = 1.0
     sigma0 = 1.5
     nx, ny, nz = 41, 41, 41
+    x = (np.arange(nx) - nx // 2) * dx
+    y = (np.arange(ny) - ny // 2) * dx
+    extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
 
     # NOTE: Replace these placeholder values with measured/derived diffusion
     # coefficients for Ba at 150-250 km. Units should match the model (dx, t).
@@ -160,18 +199,21 @@ def run_parameter_study(out_dir: Path) -> None:
         D_z = case["D_z"]
         drift = case["drift"]
 
-        n = simulate_3d(
-            nx=nx,
-            ny=ny,
-            nz=nz,
-            D_xy=D_xy,
-            D_z=D_z,
-            t_end=t_end,
-            total_particles=total_particles,
-            dx=dx,
-            sigma0=sigma0,
-            initial="gaussian",
-            drift=drift,
+        n = cast(
+            np.ndarray,
+            simulate_3d(
+                nx=nx,
+                ny=ny,
+                nz=nz,
+                D_xy=D_xy,
+                D_z=D_z,
+                t_end=t_end,
+                total_particles=total_particles,
+                dx=dx,
+                sigma0=sigma0,
+                initial="gaussian",
+                drift=drift,
+            ),
         )
         image = line_of_sight_integral(n, axis=2, dx=dx)
 

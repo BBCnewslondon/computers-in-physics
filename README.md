@@ -4,7 +4,7 @@ This project simulates diffusion using an explicit finite-difference method. It 
 
 - 1D diffusion with a numerical solution compared against the analytical Gaussian solution.
 - 3D diffusion with Gaussian initialization, anisotropic diffusion ($D_{xy}$, $D_z$), and line-of-sight integration.
-- Optional drift support ($\mathbf{v} \cdot \nabla n$) in the 3D solver.
+- Optional drift support ($\mathbf{v} \cdot \nabla n$) in the 3D solver with outflow boundaries.
 - Parameter study hooks for 150–250 km diffusion coefficients.
 
 ## Requirements
@@ -43,6 +43,9 @@ Running the script saves figures and arrays under the outputs/ folder:
 - diffusion_3d_los_alt_150km.npy
 - diffusion_3d_los_alt_200km.npy
 - diffusion_3d_los_alt_250km.npy
+- diffusion_3d_mass.png
+- diffusion_3d_mass_time.npy
+- diffusion_3d_mass.npy
 
 ## Notes
 
