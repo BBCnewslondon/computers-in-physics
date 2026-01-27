@@ -227,7 +227,7 @@ def run_sensitivity_analysis(out_dir: Path) -> None:
     plt.fill_between(times_ref, low, high, alpha=0.3, label="±20% D range")
     plt.xlabel("time")
     plt.ylabel("center density")
-    plt.title("Sensitivity Analysis (1D, D ±5%)")
+    plt.title("Sensitivity Analysis (1D, D ±20%)")
     plt.legend()
     plt.tight_layout()
     plt.savefig(out_dir / "sensitivity_1d.png", dpi=150)
