@@ -8,8 +8,6 @@ import matplotlib.pyplot as plt
 from skimage.measure import marching_cubes
 from scipy.integrate import quad
 from scipy.special import iv
-
-# Ensure you are using the 'Alternative' version of src/diffusion_3d.py
 from src.diffusion_1d import analytic_point_source_1d, simulate_1d, simulate_1d_center_series, stable_dt_1d
 from src.diffusion_3d import (
     analytic_los_gaussian_2d,
@@ -74,7 +72,7 @@ def run_3d_visualization_demo(out_dir: Path) -> None:
     ))
     image_aniso = line_of_sight_integral(n_aniso, axis=2, dx=dx)
 
-    # 3D isosurface visualization (Requires scikit-image)
+    # 3D isosurface visualization 
     iso_level = float(n_aniso.max() * 0.2)
     verts, faces, _, _ = marching_cubes(n_aniso, level=iso_level, spacing=(dx, dx, dx))
     
@@ -123,7 +121,7 @@ def run_project_c2_simulation(out_dir: Path) -> None:
     dt = (dx**2) / (6 * D)
     t_end = 2.0
 
-    # Note: explicit 'initial="sphere"' uses the logic from the Alternative src file
+    # Note: explicit initial=sphere
     n_numerical = simulate_3d(
         nx=nx, ny=ny, nz=nz, D_xy=D, D_z=D, t_end=t_end,
         total_particles=1.0, dx=dx, dt=dt, initial="sphere", radius=R,
