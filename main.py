@@ -65,7 +65,7 @@ def run_3d_visualization_demo(out_dir: Path) -> None:
     image_iso = line_of_sight_integral(n_iso, axis=2, dx=dx)
 
     # Case 2: Anisotropic
-    D_xy_aniso, D_z_aniso = 0.2, 1.0
+    D_xy_aniso, D_z_aniso = 0.25, 2.0
     n_aniso = cast(np.ndarray, simulate_3d(
         nx=nx, ny=ny, nz=nz, D_xy=D_xy_aniso, D_z=D_z_aniso, t_end=t_end,
         total_particles=total_particles, dx=dx, sigma0=sigma0, initial="gaussian",
@@ -98,14 +98,26 @@ def run_3d_visualization_demo(out_dir: Path) -> None:
     vmax = max(image_iso.max(), image_aniso.max())
     extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
 
-    plt.figure(figsize=(8, 4))
-    plt.subplot(1, 2, 1)
-    plt.imshow(image_iso, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax, extent=extent)
-    plt.title("Isotropic LOS")
-    plt.subplot(1, 2, 2)
-    plt.imshow(image_aniso, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax, extent=extent)
-    plt.title("Anisotropic LOS")
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.5))
+    for ax, (image, label) in zip(
+        axes,
+        [(image_iso, "Isotropic LOS"), (image_aniso, "Anisotropic LOS")],
+    ):
+        im = ax.imshow(image, origin="lower", cmap="magma", vmin=vmin, vmax=vmax, extent=extent)
+        ax.set_title(label)
+        ax.set_xlabel("x (km)")
+        ax.set_ylabel("y (km)")
+        contour_levels = np.linspace(image.min(), image.max(), 8)
+        ax.contour(image, levels=contour_levels, colors="white", alpha=0.35, linewidths=0.8, extent=extent)
+
+    # Place the shared colorbar entirely outside the heatmaps so it never overlaps
+    cbar_ax = fig.add_axes([0.91, 0.26, 0.015, 0.52])
+    cbar = fig.colorbar(im, cax=cbar_ax)
+    cbar.ax.set_ylabel("Integrated density (particles/km²)")
+    cbar.ax.tick_params(labelsize=9)
+    fig.suptitle("LOS Comparison", fontsize=14, fontweight="bold")
     plt.tight_layout()
+    plt.subplots_adjust(top=0.86, right=0.88)
     plt.savefig(out_dir / "diffusion_3d_los_compare.png", dpi=150)
     plt.close()
 
@@ -241,13 +253,17 @@ def run_parameter_study(out_dir: Path) -> None:
     sigma0 = 1.5
     nx, ny, nz = 41, 41, 41
     
-    # Measured diffusion coefficients for Ba at 150-250 km
+    # Diffusion coefficients for Ba at different altitudes (scaled appropriately)
+    # Higher altitudes have significantly higher diffusion due to lower atmospheric density
     altitude_cases = [
         {"alt_km": 150, "D_xy": 0.15, "D_z": 0.05, "drift": (0.0, 0.0, 0.0)},
-        {"alt_km": 200, "D_xy": 0.22, "D_z": 0.08, "drift": (0.0, 0.0, 0.0)},
-        {"alt_km": 250, "D_xy": 0.30, "D_z": 0.12, "drift": (0.0, 0.0, 0.0)},
+        {"alt_km": 300, "D_xy": 0.50, "D_z": 0.20, "drift": (0.0, 0.0, 0.0)},
+        {"alt_km": 600, "D_xy": 1.50, "D_z": 0.60, "drift": (0.0, 0.0, 0.0)},
     ]
 
+    # Store all images for side-by-side comparison
+    images = []
+    
     for case in altitude_cases:
         alt_km = case["alt_km"]
         D_xy = case["D_xy"]
@@ -260,14 +276,65 @@ def run_parameter_study(out_dir: Path) -> None:
             initial="gaussian", drift=drift,
         ))
         image = line_of_sight_integral(n, axis=2, dx=dx)
+        images.append((alt_km, image))
         
-        plt.figure()
-        plt.imshow(image, origin="lower", cmap="viridis")
-        plt.colorbar(label="Integrated density")
-        plt.title(f"LOS Density (Alt {alt_km} km)")
+        # Individual plots with independent color scales for maximum contrast
+        plt.figure(figsize=(8, 7))
+        x = (np.arange(nx) - nx // 2) * dx
+        y = (np.arange(ny) - ny // 2) * dx
+        extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
+        
+        im = plt.imshow(image, origin="lower", cmap="plasma", extent=extent)
+        
+        # Add contour lines to emphasize structure
+        levels = np.linspace(image.min(), image.max(), 8)
+        plt.contour(image, levels=levels, colors='white', alpha=0.3, 
+                   linewidths=1, extent=extent)
+        
+        plt.colorbar(im, label="Integrated density (particles/km²)")
+        plt.xlabel("x (km)")
+        plt.ylabel("y (km)")
+        plt.title(f"Cloud Diffusion at {alt_km} km Altitude\n" +
+                 f"$D_{{xy}}$ = {D_xy} km²/s, $D_z$ = {D_z} km²/s", fontsize=12, fontweight='bold')
         plt.tight_layout()
         plt.savefig(out_dir / f"diffusion_3d_los_alt_{alt_km}km.png", dpi=150)
         plt.close()
+    
+    # Create side-by-side comparison with same color scale and more vertical room for titles
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6.5))
+    
+    # Use the same color scale for direct comparison
+    vmin = min(img.min() for _, img in images)
+    vmax = max(img.max() for _, img in images)
+    
+    x = (np.arange(nx) - nx // 2) * dx
+    y = (np.arange(ny) - ny // 2) * dx
+    extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
+    
+    for ax, (alt_km, image) in zip(axes, images):
+        im = ax.imshow(image, origin="lower", cmap="plasma", vmin=vmin, vmax=vmax, extent=extent)
+        
+        # Add contour lines
+        levels = np.linspace(vmin, vmax, 8)
+        ax.contour(image, levels=levels, colors='white', alpha=0.4, 
+                  linewidths=1, extent=extent)
+        
+        ax.set_xlabel("x (km)", fontsize=10)
+        ax.set_ylabel("y (km)", fontsize=10)
+        ax.set_title(f"{alt_km} km\n$D_{{xy}}$={altitude_cases[images.index((alt_km, image))]['D_xy']}, " +
+                    f"$D_z$={altitude_cases[images.index((alt_km, image))]['D_z']}", 
+                    fontsize=11, fontweight='bold')
+    
+    # Add single colorbar outside the subplots so it never overlaps them
+    cbar_ax = fig.add_axes([0.94, 0.20, 0.02, 0.62])
+    cbar = fig.colorbar(im, cax=cbar_ax, label="Integrated density (particles/km²)", aspect=30)
+    cbar.ax.tick_params(labelsize=9)
+    
+    fig.suptitle("Cloud Diffusion Comparison at Different Altitudes", 
+                fontsize=14, fontweight='bold', y=0.97)
+    plt.subplots_adjust(top=0.88, bottom=0.12, left=0.05, right=0.92, wspace=0.25)
+    plt.savefig(out_dir / "diffusion_3d_altitude_comparison.png", dpi=150, bbox_inches='tight')
+    plt.close()
         
 def run_mass_conservation_check(out_dir: Path) -> None:
     """
