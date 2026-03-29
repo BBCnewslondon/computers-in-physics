@@ -821,6 +821,6 @@ if __name__ == "__main__":
     print("Running Parameter Study...")
     run_parameter_study(output_path)
 
-    print("Done! Check 'outputs/' directory.")
     run_sensitivity_analysis(output_path)
     run_mass_conservation_check(output_path)
+    print("Done! Check 'outputs/' directory.")
