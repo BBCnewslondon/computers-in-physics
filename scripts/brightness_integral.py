@@ -29,13 +29,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Numerically integrate B(rho) with I0.")
     parser.add_argument("--R", type=float, default=1.0)
     parser.add_argument("--D", type=float, default=0.2)
-    parser.add_argument("--t", type=float, default=0.5)
+    parser.add_argument("--t", type=float, nargs="+", default=[0.5, 2.0, 5.0])
     parser.add_argument("--rho", type=float, nargs="*", default=[0.0, 0.5, 1.0, 2.0, 3.0])
     args = parser.parse_args()
 
-    for r in args.rho:
-        val = brightness_bessel(r, args.R, args.D, args.t)
-        print(f"rho={r:.4f} -> B={val:.6e}")
+    for t in args.t:
+        for r in args.rho:
+            val = brightness_bessel(r, args.R, args.D, t)
+            print(f"t={t:.4f} rho={r:.4f} -> B={val:.6e}")
 
 
 if __name__ == "__main__":
