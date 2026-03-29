@@ -76,7 +76,10 @@ def analytic_sphere_density(r: np.ndarray, t: float, D: float, R: float) -> np.n
         term2 = (1.0 / r) * np.sqrt(D * t / np.pi) * (
             np.exp(-r_plus**2) - np.exp(-r_minus**2)
         )
-    term2 = np.nan_to_num(term2)
+
+    # Replace NaN at r=0 with the proper mathematical limit (L'Hopital's Rule).
+    limit_at_zero = -(R / np.sqrt(np.pi * D * t)) * np.exp(-R**2 / (4 * D * t))
+    term2 = np.where(r == 0, limit_at_zero, term2)
 
     return term1 + term2
 

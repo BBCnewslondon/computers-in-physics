@@ -10,7 +10,7 @@ This project simulates diffusion processes using explicit finite-difference meth
 - **Analytical Comparisons**: Includes analytical solutions for 1D point sources, 3D Gaussian LOS projections, and sphere density profiles.
 - **Brightness Integral**: Numerical computation of brightness profiles using Bessel functions for sphere diffusion.
 - **Sensitivity Analysis**: Monte Carlo perturbations on diffusion coefficients to assess variability.
-- **Parameter Studies**: Altitude-dependent diffusion coefficients (e.g., for Ba at 150–250 km).
+- **Parameter Studies**: Altitude-dependent diffusion coefficients (e.g., for Ba at 150, 300, and 600 km).
 - **Mass Conservation**: Tracks total mass over time, including with drift and outflow boundaries.
 - **Visualization**: Generates isosurfaces, 2D images, and plots using Matplotlib and scikit-image.
 
@@ -51,7 +51,8 @@ Running the script saves the following files under `outputs/`:
 - `diffusion_1d.png`, `diffusion_1d_x.npy`, `diffusion_1d_numerical.npy`, `diffusion_1d_analytical.npy`: 1D comparison plots and data.
 - `diffusion_3d_isosurface.png`, `diffusion_3d_los_compare.png`: 3D visualizations.
 - `project_c2_radial_density.png`, `brightness_verification.png`: Sphere and brightness demos.
-- `diffusion_3d_los_alt_150km.png`, `diffusion_3d_los_alt_200km.png`, `diffusion_3d_los_alt_250km.png`: Altitude parameter studies.
+- `diffusion_3d_los_alt_150km.png`, `diffusion_3d_los_alt_300km.png`, `diffusion_3d_los_alt_600km.png`: Altitude parameter studies.
+- `diffusion_3d_los_alt_150_300_600km_subplot.png`, `diffusion_3d_altitude_comparison.png`: Shared-axis subplot comparison across altitudes.
 - `sensitivity_1d.png`: Sensitivity analysis plot.
 - `diffusion_3d_mass.png`, `diffusion_3d_mass_time.npy`, `diffusion_3d_mass.npy`: Mass conservation data.
 

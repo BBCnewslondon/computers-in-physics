@@ -145,6 +145,33 @@ def run_project_c2_simulation(out_dir: Path) -> None:
 
     c_radial_analytic = analytic_sphere_density(r_axis, t_end, D, R)
 
+    # Build the full 3D analytical field so global error norms can be evaluated.
+    x = (np.arange(nx) - center_idx) * dx
+    y = (np.arange(ny) - ny // 2) * dx
+    z = (np.arange(nz) - nz // 2) * dx
+    X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
+    r_3d = np.sqrt(X**2 + Y**2 + Z**2)
+    c_analytical_3d = analytic_sphere_density(r_3d, t_end, D, R)
+
+    error_array = n_numerical - c_analytical_3d
+    n_points = n_numerical.size
+
+    # L2 norm as RMS error over all grid points.
+    l2_error = np.sqrt(np.sum(error_array**2) / n_points)
+
+    # L-infinity norm as the single largest absolute pointwise error.
+    l_inf_error = np.max(np.abs(error_array))
+
+    # Relative error at peak analytical density to avoid edge division by near-zero.
+    peak_index = np.unravel_index(np.argmax(c_analytical_3d), c_analytical_3d.shape)
+    peak_relative_error = np.abs(error_array[peak_index] / c_analytical_3d[peak_index]) * 100
+
+    print(f"L2 Global Error: {l2_error:.4e} kg/m^3")
+    print(f"L_infinity Max Error: {l_inf_error:.4e} kg/m^3")
+    print(f"Peak Fractional Error: {peak_relative_error:.4f}%")
+
+    radial_error = c_radial_numerical - c_radial_analytic
+
     plt.figure()
     plt.plot(r_axis, c_radial_numerical, "o", label="Numerical (Finite Diff)")
     plt.plot(r_axis, c_radial_analytic, "-", label="Analytical (Theory)")
@@ -153,6 +180,17 @@ def run_project_c2_simulation(out_dir: Path) -> None:
     plt.title(f"Radial Density Profile (t={t_end})")
     plt.legend()
     plt.savefig(out_dir / "project_c2_radial_density.png")
+    plt.show()
+
+    plt.figure()
+    plt.plot(r_axis, radial_error, "o-", color="crimson", label="Finite Difference Error")
+    plt.axhline(0.0, color="black", linewidth=0.8, alpha=0.7)
+    plt.xlabel("Radius r")
+    plt.ylabel("Error (Numerical - Analytical)")
+    plt.title(f"Radial Density Error Profile (t={t_end})")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_dir / "project_c2_radial_density_error.png", dpi=150)
     plt.show()
 
 def brightness_bessel(rho: float, R: float, D: float, t: float) -> float:
@@ -306,40 +344,46 @@ def run_parameter_study(out_dir: Path) -> None:
         plt.savefig(out_dir / f"diffusion_3d_los_alt_{alt_km}km.png", dpi=150)
         plt.close()
     
-    # Create side-by-side comparison with same color scale and more vertical room for titles
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6.5))
-    
-    # Use the same color scale for direct comparison
+    # Create a shared-axis subplot for 150/300/600 km so cloud spread is directly comparable.
+    fig, axes = plt.subplots(1, 3, figsize=(17, 5.8), sharex=True, sharey=True)
+
+    # Use one color scale for all panels.
     vmin = min(img.min() for _, img in images)
     vmax = max(img.max() for _, img in images)
-    
+
     x = (np.arange(nx) - nx // 2) * dx
     y = (np.arange(ny) - ny // 2) * dx
     extent = (float(x.min()), float(x.max()), float(y.min()), float(y.max()))
-    
-    for ax, (alt_km, image) in zip(axes, images):
+
+    for ax, case, (_, image) in zip(axes, altitude_cases, images):
+        alt_km = case["alt_km"]
+        D_xy = case["D_xy"]
+        D_z = case["D_z"]
+
         im = ax.imshow(image, origin="lower", cmap="plasma", vmin=vmin, vmax=vmax, extent=extent)
-        
-        # Add contour lines
         levels = np.linspace(vmin, vmax, 8)
-        ax.contour(image, levels=levels, colors='white', alpha=0.4, 
-                  linewidths=1, extent=extent)
-        
-        ax.set_xlabel("x (km)", fontsize=10)
-        ax.set_ylabel("y (km)", fontsize=10)
-        ax.set_title(f"{alt_km} km\n$D_{{xy}}$={altitude_cases[images.index((alt_km, image))]['D_xy']}, " +
-                    f"$D_z$={altitude_cases[images.index((alt_km, image))]['D_z']}", 
-                    fontsize=11, fontweight='bold')
-    
-    # Add single colorbar outside the subplots so it never overlaps them
-    cbar_ax = fig.add_axes([0.94, 0.20, 0.02, 0.62])
-    cbar = fig.colorbar(im, cax=cbar_ax, label="Integrated density (particles/km²)", aspect=30)
-    cbar.ax.tick_params(labelsize=9)
-    
-    fig.suptitle("Cloud Diffusion Comparison at Different Altitudes", 
-                fontsize=14, fontweight='bold', y=0.97)
-    plt.subplots_adjust(top=0.88, bottom=0.12, left=0.05, right=0.92, wspace=0.25)
-    plt.savefig(out_dir / "diffusion_3d_altitude_comparison.png", dpi=150, bbox_inches='tight')
+        ax.contour(image, levels=levels, colors="white", alpha=0.4, linewidths=0.9, extent=extent)
+        ax.set_title(
+            f"{alt_km} km\n$D_{{xy}}$={D_xy:.2f}, $D_z$={D_z:.2f}",
+            fontsize=11,
+            fontweight="bold",
+        )
+        ax.set_aspect("equal")
+
+    axes[0].set_xlim(extent[0], extent[1])
+    axes[0].set_ylim(extent[2], extent[3])
+    fig.supxlabel("x (km)")
+    fig.supylabel("y (km)")
+
+    # Place the colorbar farther right so it does not crowd the 600 km panel.
+    cbar_ax = fig.add_axes([0.93, 0.14, 0.018, 0.66])
+    cbar = fig.colorbar(im, cax=cbar_ax)
+    cbar.set_label("Integrated density (particles/km²)")
+
+    fig.suptitle("Cloud Diffusion LOS Subplots at 150, 300, and 600 km", fontsize=14, fontweight="bold")
+    fig.subplots_adjust(left=0.06, right=0.89, bottom=0.12, top=0.83, wspace=0.18)
+    plt.savefig(out_dir / "diffusion_3d_los_alt_150_300_600km_subplot.png", dpi=150)
+    plt.savefig(out_dir / "diffusion_3d_altitude_comparison.png", dpi=150)
     plt.close()
         
 def run_mass_conservation_check(out_dir: Path) -> None:
