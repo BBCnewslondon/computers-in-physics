@@ -540,20 +540,26 @@ def run_brightness_verification(out_dir: Path) -> None:
     """
     From 'Alternative' branch:
     Verifies the brightness integral which uses Bessel functions.
+    Plots the evolution of line-of-sight brightness for three different times.
     """
     R = 4.0
     D = 1.0
-    t = 2.0
+    times = [0.5, 2.0, 5.0]
+    colors = ["blue", "orange", "green"]
 
-    rho = np.linspace(0.0, 2.5 * R, 80)
-    brightness = np.array([brightness_bessel(r, R, D, t) for r in rho])
+    max_radius = 2.5 * R
+    radii = np.linspace(0.0, max_radius, 100)
 
-    plt.figure()
-    plt.plot(rho, brightness, "-", label="Brightness integral")
-    plt.xlabel("Impact parameter $\\rho$")
-    plt.ylabel("Brightness B($\\rho$)")
-    plt.title(f"Brightness Verification (R={R}, D={D}, t={t})")
+    plt.figure(figsize=(8, 6))
+    for t, c in zip(times, colors):
+        brightness = [brightness_bessel(r, R, D, t) for r in radii]
+        plt.plot(radii, brightness, label=f"t = {t} s", color=c)
+
+    plt.xlabel(r"Impact parameter $\rho$ (m)")
+    plt.ylabel(r"Observed Brightness $B(\rho)$")
+    plt.title("Evolution of Barium Cloud Line-of-Sight Brightness")
     plt.legend()
+    plt.grid(True)
     plt.tight_layout()
     plt.savefig(out_dir / "brightness_verification.png", dpi=150)
     plt.close()
